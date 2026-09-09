@@ -446,9 +446,9 @@ function renderLogin(){
       <div class="login-sub" style="position:relative;z-index:1;">Proje Yönetim Sistemi</div>
       ${state.loginErr?`<div class="login-err">${state.loginErr}</div>`:''}
       <div class="form-label">E-posta</div>
-      <input class="form-input" id="le" type="email" placeholder="ornek@mail.com" value="${state.loginEmail}" style="margin-bottom:10px">
+      <input class="form-input" id="le" type="email" placeholder="ornek@mail.com" value="${state.loginEmail}" autocomplete="username" style="margin-bottom:10px">
       <div class="form-label">Şifre</div>
-      <input class="form-input" id="lp" type="password" placeholder="••••••••" value="${state.loginPass}" style="margin-bottom:16px">
+      <input class="form-input" id="lp" type="password" placeholder="••••••••" value="${state.loginPass}" autocomplete="new-password" style="margin-bottom:16px">
       ${state.loginMode==='login'?`
         <button class="btn-primary" onclick="doLogin()">Giriş Yap</button>
         <div style="text-align:center;font-size:13px;color:#999;margin-top:8px">Hesabın yok mu? <span style="color:#111;cursor:pointer;font-weight:700" onclick="toggleMode()">Kayıt Ol</span></div>
