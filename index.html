@@ -378,10 +378,12 @@ function getFiltered() {
     if(state.filter.alan&&state.filter.alan.trim()){if(!String(p.alan||'').startsWith(state.filter.alan.trim()))return false;}
     return true;
   }).sort((a,b)=>{
-    // Always sort newest first: year desc, month desc, no desc
+    // Always sort newest first: full tarih (yıl > ay > gün) desc, then ekleniş sırası (no) desc
     if(+b.yil !== +a.yil) return +b.yil - +a.yil;
     const ayFark = MONTHS.indexOf(b.ay) - MONTHS.indexOf(a.ay);
     if(ayFark !== 0) return ayFark;
+    const gunFark = (+b.gun||0) - (+a.gun||0);
+    if(gunFark !== 0) return gunFark;
     return (+b.no||0) - (+a.no||0);
   });
 }
@@ -739,7 +741,10 @@ function renderForm(){
       <span style="color:#9CA3AF;font-size:18px;">›</span>
     </button>
     <div class="form-row">
-      <div><label class="form-label">Belediye</label><select class="form-input" onchange="setForm('belediye',this.value)"><option value="">Seçin</option>${["Osmangazi","Nilüfer","Yıldırım","Gemlik","Mudanya","Kestel","Karacabey","İnegöl","Gürsu","Orhangazi","İznik","Yalova","İstanbul","Keles","Nilüfer OSB","Demirtaş OSB"].map(b=>`<option ${f.belediye===b?'selected':''}>${b}</option>`).join('')}</select></div>
+      <div><label class="form-label">Belediye</label><button onclick="openListeModal('belediye')" style="width:100%;padding:12px;border:1px solid #DCDCDC;border-radius:8px;font-size:14px;font-family:'Nunito',sans-serif;background:#fff;color:${f.belediye?'#111':'#9CA3AF'};text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;box-sizing:border-box;">
+        <span>${f.belediye||'Seçin veya ekleyin...'}</span>
+        <span style="color:#9CA3AF;font-size:18px;">›</span>
+      </button></div>
       <div><label class="form-label">Yapı Sınıfı</label><select class="form-input" onchange="setForm('yapiSinifi',this.value)">${['1','2','3A','3B','4A','4B','4C','5A','5B','5C','5D'].map(s=>`<option ${f.yapiSinifi===s?'selected':''}>${s}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
@@ -763,6 +768,25 @@ function renderForm(){
       ${(f.altYukleniciler||[]).length===0?'<div class="empty">Elektrik, akustik vb. varsa ekleyin</div>':''}
       ${(f.altYukleniciler||[]).map(a=>{
         const tipFirmalar = [...(TIP_FIRMALAR[a.tip]||[]),...(state.dinamikListe.altFirmalar||[])];
+        const net = (+a.anlasilanFiyat||0)+(+a.tusFiyat||0)-(a.isKarsiligi?(+a.isKarsiligiFiyat||0):0);
+        if(a.onaylandi){
+          // Onaylanmış: kompakt özet kartı
+          return `<div class="alt-item-form" style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#111;font-family:'Nunito',sans-serif;">${a.tip||'—'}${a.firma?' · <span style="font-weight:600;color:#666;font-size:12px;">'+a.firma+'</span>':''}</div>
+            <div class="alt-info" style="margin-top:4px;">
+              <span>Anlaşılan: <strong style="color:#333">${tl(a.anlasilanFiyat||0)}</strong></span>
+              ${a.tus?`<span>TUS: <strong style="color:#333">${a.tusFiyat?tl(a.tusFiyat):'Var'}</strong></span>`:''}
+              ${a.isKarsiligi?`<span>İş Karşılığı: <strong style="color:#333">-${tl(a.isKarsiligiFiyat||0)}</strong></span>`:''}
+            </div>
+            <div style="font-size:13px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;margin-top:4px;">Net: ${tl(net)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;margin-left:10px;">
+            <button onclick="editAlt('${a.id}')" class="btn-small" style="background:#fff;color:#111;border:1px solid #DCDCDC;">Düzenle</button>
+            <button onclick="delAlt('${a.id}')" style="background:none;border:none;cursor:pointer;color:#CCC;font-size:20px;padding:0;line-height:1;">×</button>
+          </div>
+        </div>`;
+        }
         return `<div class="alt-item-form">
         <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">
           <div style="flex:1;">
@@ -782,7 +806,7 @@ function renderForm(){
         </button>`:''}
         <!-- Anlaşılan Fiyat -->
         <input class="form-input" type="text" inputmode="numeric" placeholder="Anlaşılan fiyat (₺ KDV hariç)" value="${a.anlasilanFiyat?new Intl.NumberFormat('tr-TR').format(+a.anlasilanFiyat):''}" oninput="updAlt('${a.id}','anlasilanFiyat',formatFiyatInput(this));updateAltTotaal('${a.id}')">
-        
+
         <!-- İş Karşılığı -->
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <input type="checkbox" id="ik_${a.id}" ${a.isKarsiligi?'checked':''} onchange="updAlt('${a.id}','isKarsiligi',this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:#111;">
@@ -806,12 +830,15 @@ function renderForm(){
         <div id="alt_total_${a.id}" style="display:flex;flex-direction:column;gap:3px;padding:8px 0;border-top:1px solid #E8E8E8;margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:12px;font-weight:700;color:#555;font-family:'Nunito',sans-serif;">Net Ödeme</span>
-            <span id="alt_net_${a.id}" style="font-size:15px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;">${tl((+a.anlasilanFiyat||0)+(+a.tusFiyat||0)-(a.isKarsiligi?(+a.isKarsiligiFiyat||0):0))}</span>
+            <span id="alt_net_${a.id}" style="font-size:15px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;">${tl(net)}</span>
           </div>
         </div>
 
         <!-- Not -->
-        <input class="form-input" placeholder="Not (opsiyonel)..." value="${a.altNot||''}" oninput="updAlt('${a.id}','altNot',this.value)" style="font-size:12px;color:#666;">
+        <input class="form-input" placeholder="Not (opsiyonel)..." value="${a.altNot||''}" oninput="updAlt('${a.id}','altNot',this.value)" style="font-size:12px;color:#666;margin-bottom:8px;">
+
+        <!-- Onayla -->
+        <button onclick="confirmAlt('${a.id}')" class="btn-primary" style="margin:0;padding:10px;font-size:13px;">✓ Onayla</button>
       </div>`;}).join('')}
     </div>
     <!-- TUS (Toplam Teklif) -->
@@ -1415,7 +1442,7 @@ window.navTo=(v,id=null)=>{
   if(v==='teklif'){state.view='teklifMenu';state.detailMode='teklif';window.scrollTo&&window.scrollTo(0,0);render();return;}
   if(v==='odeme'){state.view='list';state.filter={yil:'',durum:'onaylandi',q:''};state.detailMode='odeme';window.scrollTo&&window.scrollTo(0,0);render();return;}
   state.view=v;if(id)state.selId=id;
-  if(v==='form'){ state.tarihSecimAcik=false;if(id){const p=state.projects.find(x=>x.id===id);state.form={...p,altYukleniciler:[...(p.altYukleniciler||[])],musteriOdemeleri:[...(p.musteriOdemeleri||[])]};}else {
+  if(v==='form'){ state.tarihSecimAcik=false;if(id){const p=state.projects.find(x=>x.id===id);state.form={...p,altYukleniciler:(p.altYukleniciler||[]).map(a=>({...a,onaylandi:a.onaylandi!==undefined?a.onaylandi:!!(a.firma||a.anlasilanFiyat)})),musteriOdemeleri:[...(p.musteriOdemeleri||[])]};}else {
         // Restore saved draft if exists
         if(state.savedForm && state.savedForm._draft) {
           const restored = {...state.savedForm};
@@ -1802,7 +1829,9 @@ window.setTarih = (val) => {
 window.toggleTarihSecim = () => { state.tarihSecimAcik = !state.tarihSecimAcik; render(); };
 window.setFilter=(k,v)=>{state.filter[k]=v;render();};
 window.setForm=(k,v)=>{if(state.form)state.form[k]=v;};
-window.addAlt=()=>{if(state.form){state.form.altYukleniciler.push({id:uid(),tip:'Elektrik',firma:'',anlasilanFiyat:'',odemeler:[]});render();}};
+window.addAlt=()=>{if(state.form){state.form.altYukleniciler.push({id:uid(),tip:'Elektrik',firma:'',anlasilanFiyat:'',odemeler:[],onaylandi:false});render();}};
+window.confirmAlt=(id)=>{if(state.form){state.form.altYukleniciler=state.form.altYukleniciler.map(a=>a.id===id?{...a,onaylandi:true}:a);render();}};
+window.editAlt=(id)=>{if(state.form){state.form.altYukleniciler=state.form.altYukleniciler.map(a=>a.id===id?{...a,onaylandi:false}:a);render();}};
 
 window.updateAltTotaal = (id) => {
   const a = state.form?.altYukleniciler?.find(x=>x.id===id);
