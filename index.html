@@ -184,6 +184,10 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 try { db.enablePersistence(); } catch(e) {}
+// Guvenlik: oturum sadece bu pencere/sekme acikken gecerli olsun; uygulama
+// kapatilip yeniden acildiginda (PC ikonu, telefon simgesi, yeni sekme) sifre tekrar sorulsun.
+// E-posta hala tarayicinin kendi otomatik doldurma ozelligiyle hatirlanabilir, sadece oturum kalici degil.
+try { auth.setPersistence(firebase.auth.Auth.Persistence.SESSION); } catch(e) { console.error('setPersistence error:', e); }
 
 const tl = n => (n&&+n!==0) ? new Intl.NumberFormat('tr-TR').format(Math.round(+n))+' ₺' : '—';
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
