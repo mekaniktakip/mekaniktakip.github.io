@@ -791,6 +791,17 @@ function renderForm(){
         <input class="form-input" placeholder="Not (opsiyonel)..." value="${a.altNot||''}" oninput="updAlt('${a.id}','altNot',this.value)" style="font-size:12px;color:#666;">
       </div>`;}).join('')}
     </div>
+    <!-- TUS (Toplam Teklif) -->
+    <div style="background:#F9F9F9;border-radius:10px;padding:10px;margin-top:12px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${f.tus?'8px':'0'};">
+        <span style="font-size:13px;font-weight:700;color:#555;font-family:'Nunito',sans-serif;">TUS</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="setFormAndRender('tus',false)" style="padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;border:2px solid ${!f.tus?'#111':'#E0E0E0'};background:${!f.tus?'#111':'#fff'};color:${!f.tus?'#fff':'#999'};">Yok</button>
+          <button onclick="setFormAndRender('tus',true)" style="padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;border:2px solid ${f.tus?'#111':'#E0E0E0'};background:${f.tus?'#111':'#fff'};color:${f.tus?'#fff':'#999'};">Var</button>
+        </div>
+      </div>
+      ${f.tus?`<input class="form-input" type="text" inputmode="numeric" style="margin-bottom:0;" placeholder="TUS anlaşılan fiyatı (₺ KDV hariç)" value="${f.tusFiyat?new Intl.NumberFormat('tr-TR').format(+f.tusFiyat):''}" oninput="setForm('tusFiyat',formatFiyatInput(this))">`:''}
+    </div>
     <label class="form-label">Toplam Teklif (₺ KDV hariç)</label>
     <input class="form-input" type="text" inputmode="numeric" placeholder="0" value="${f.teklifFiyati?new Intl.NumberFormat('tr-TR').format(+f.teklifFiyati):''}" oninput="setForm('teklifFiyati',formatFiyatInput(this))">
     <label class="form-label">Not</label>
@@ -1015,6 +1026,10 @@ function renderAyarlar(){
         <div style="font-size:11px;color:#999;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;">Giriş Yapan</div>
         <div style="font-size:14px;font-weight:700;color:#111;">${state.user?.email||'—'}</div>
       </div>
+      <div onclick="openSifreDegistir()" style="padding:14px 0;border-bottom:1px solid #F0F0F0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:700;color:#111;font-family:'Nunito',sans-serif;">Şifre Değiştir</span>
+        <span style="color:#999;font-size:18px;">🔒</span>
+      </div>
       <div onclick="cikisOnay()" style="padding:14px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:14px;font-weight:700;color:#EF4444;font-family:'Nunito',sans-serif;">Çıkış Yap</span>
         <span style="color:#EF4444;font-size:18px;">→</span>
@@ -1140,6 +1155,24 @@ function renderModal(){
           <button onclick="raporCiktiYap('${m.tip}',true)" style="width:100%;padding:14px;background:#111;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;color:#fff;">Evet, Listeyi de Ekle</button>
           <button onclick="raporCiktiYap('${m.tip}',false)" style="width:100%;padding:14px;background:#F5F5F5;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:'Nunito',sans-serif;cursor:pointer;color:#555;">Hayır, Sadece Özet</button>
           <button onclick="closeModal()" style="width:100%;padding:12px;background:transparent;border:1px solid #E0E0E0;border-radius:12px;font-size:13px;font-family:'Nunito',sans-serif;cursor:pointer;color:#999;">Vazgeç</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  if(m?.type==='sifreDegistir'){
+    return `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal-box" style="border-radius:16px 16px 0 0;padding:20px 16px 32px;">
+        <div class="modal-title">Şifre Değiştir</div>
+        ${m.err?`<div style="background:#FEF2F2;color:#EF4444;font-size:12.5px;font-family:'Nunito',sans-serif;padding:10px 12px;border-radius:10px;margin-bottom:12px;">${m.err}</div>`:''}
+        <label class="form-label">Mevcut Şifre</label>
+        <input class="form-input" type="password" id="sd_mevcut" placeholder="Mevcut şifreniz" style="margin-bottom:10px;">
+        <label class="form-label">Yeni Şifre</label>
+        <input class="form-input" type="password" id="sd_yeni" placeholder="En az 6 karakter" style="margin-bottom:10px;">
+        <label class="form-label">Yeni Şifre (Tekrar)</label>
+        <input class="form-input" type="password" id="sd_yeni2" placeholder="Yeni şifrenizi tekrar yazın" style="margin-bottom:14px;">
+        <div style="display:flex;gap:8px;">
+          <button onclick="closeModal()" class="btn-secondary" style="margin-bottom:0;">Vazgeç</button>
+          <button onclick="doSifreDegistir()" class="btn-primary" style="margin-bottom:0;">Değiştir</button>
         </div>
       </div>
     </div>`;
@@ -1850,7 +1883,8 @@ function authErrTR(err){
     'auth/invalid-credential':'E-posta veya şifre hatalı.',
     'auth/weak-password':'Şifre en az 6 karakter olmalı.',
     'auth/too-many-requests':'Çok fazla deneme yapıldı, biraz sonra tekrar deneyin.',
-    'auth/network-request-failed':'İnternet bağlantısı sorunu, tekrar deneyin.'
+    'auth/network-request-failed':'İnternet bağlantısı sorunu, tekrar deneyin.',
+    'auth/requires-recent-login':'Güvenlik nedeniyle önce mevcut şifrenizi doğrulamamız gerekiyor. Lütfen tekrar deneyin.'
   };
   return map[c] || ('Hata: ' + (err && err.message ? err.message : err));
 }
@@ -1867,6 +1901,26 @@ window.doForgotPassword=async()=>{
     state.loginErr=authErrTR(err);
   }
   render();
+};
+window.openSifreDegistir=()=>{ state.modal={type:'sifreDegistir', err:''}; render(); };
+window.doSifreDegistir=async()=>{
+  const mevcut=document.getElementById('sd_mevcut')?.value||'';
+  const yeni=document.getElementById('sd_yeni')?.value||'';
+  const yeni2=document.getElementById('sd_yeni2')?.value||'';
+  if(!mevcut||!yeni||!yeni2){ state.modal={...state.modal,err:'Lütfen tüm alanları doldurun.'}; render(); return; }
+  if(yeni.length<6){ state.modal={...state.modal,err:'Yeni şifre en az 6 karakter olmalı.'}; render(); return; }
+  if(yeni!==yeni2){ state.modal={...state.modal,err:'Yeni şifreler birbiriyle uyuşmuyor.'}; render(); return; }
+  try{
+    const user = auth.currentUser;
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, mevcut);
+    await user.reauthenticateWithCredential(cred);
+    await user.updatePassword(yeni);
+    state.modal=null; render();
+    alert('Şifreniz başarıyla değiştirildi.');
+  }catch(err){
+    state.modal={...state.modal,err:authErrTR(err)};
+    render();
+  }
 };
 window.doImport=()=>{
   const inp=document.createElement('input');
