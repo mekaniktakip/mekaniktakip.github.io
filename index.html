@@ -572,9 +572,20 @@ function renderDetail(){
     s += '<div style="display:flex;align-items:center;gap:6px"><span class="badge-tip">'+( a.tip||'')+'</span><strong style="font-size:13px;color:#111">'+( a.firma||'—')+'</strong></div>';
     if(!gizle) s += '<button class="btn-small" onclick="openModal(\'altOdeme\',\''+a.id+'\')" >+ Ödeme</button>';
     s += '</div>';
+    // Anlaşma detayları (anlaşılan fiyat, TUS, iş karşılığı) — ödeme modundan bağımsız her zaman görünür
+    s += '<div class="alt-info">';
+    s += '<span>Anlaşılan: <strong style="color:#333">'+tl(a.anlasilanFiyat)+'</strong></span>';
+    if(a.tus) s += '<span>TUS: <strong style="color:#333">'+(a.tusFiyat?tl(a.tusFiyat):'Var')+'</strong></span>';
+    if(a.isKarsiligi) s += '<span>İş Karşılığı: <strong style="color:#333">-'+tl(a.isKarsiligiFiyat||0)+'</strong></span>';
+    s += '</div>';
+    if(a.tus||a.isKarsiligi){
+      s += '<div class="alt-info">';
+      s += '<span>Net Toplam: <strong style="color:#111">'+tl(a.topA)+'</strong></span>';
+      s += '</div>';
+    }
+    if(a.altNot) s += '<div style="font-size:11px;color:#888;padding:2px 0 6px;">'+a.altNot+'</div>';
     if(!gizle){
       s += '<div class="alt-info">';
-      s += '<span>Anlaşılan: <strong style="color:#333">'+tl(a.topA)+'</strong></span>';
       s += '<span>Ödendi: <strong style="color:#333">'+tl(a.topO)+'</strong></span>';
       if(a.topA-a.topO>0) s += '<span style="color:#666">Borç: <strong>'+tl(a.topA-a.topO)+'</strong></span>';
       s += '</div>';
