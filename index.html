@@ -560,6 +560,7 @@ function renderDetail(){
     ['Yapı Sınıfı', p.yapiSinifi],
     ['Isıtma Türü', p.isitma==='VAR'?p.isiitmaTuru:(p.isitma==='YOK'?'Yok':null)],
     ['Alan', p.alan?p.alan+' m²':null],
+    ['TUS', p.tus?('Var'+(p.tusFiyat?' · '+tl(p.tusFiyat):'')):null],
     ['Teklif (KDV hariç)', p.teklifFiyati?tl(p.teklifFiyati):null],
     ['Not', p.not],
   ].filter(r=>r[1]);
@@ -580,7 +581,10 @@ function renderDetail(){
       (a.odemeler||[]).forEach(o=>{
         s += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;color:#6B7280;">';
         s += '<span>→ '+o.tarih+': '+tl(o.miktar)+(o.aciklama?' ('+o.aciklama+')':'')+'</span>';
+        s += '<div style="display:flex;gap:4px;align-items:center;">';
         s += '<button onclick="editAltOdeme(\''+a.id+'\',\''+o.id+'\')" style="background:none;border:1px solid #E0E0E0;border-radius:6px;cursor:pointer;color:#888;font-size:10px;padding:2px 7px;font-family:\'Nunito\',sans-serif;">Düzenle</button>';
+        s += '<button onclick="delAltOdeme(\''+a.id+'\',\''+o.id+'\')" style="background:none;border:none;cursor:pointer;color:#CCC;font-size:16px;padding:2px 6px;line-height:1;">×</button>';
+        s += '</div>';
         s += '</div>';
       });
     }
@@ -839,6 +843,7 @@ function renderTeklifOzet(){
         ['Yapı Sınıfı', p.yapiSinifi],
         ['Isıtma', p.isitma==='VAR'?p.isiitmaTuru:'Yok'],
         ['Alan', p.alan?p.alan+' m²':null],
+        ['TUS', p.tus?('Var'+(p.tusFiyat?' · '+tl(p.tusFiyat):'')):null],
         ['Tarih', (p.gun?p.gun+' ':'')+(p.ay||'')+' '+(p.yil||'')],
         ['Durum', labels[p.durum]||'Teklif Verildi'],
       ].filter(r=>r[1]).map(([k,v])=>`
@@ -1797,10 +1802,8 @@ window.updateAltTotaal = (id) => {
 
 window.updAlt=(id,k,v)=>{if(state.form){state.form.altYukleniciler=state.form.altYukleniciler.map(a=>a.id===id?{...a,[k]:v}:a);if(['tus','isKarsiligi','tip','firma'].includes(k))render();}};
 window.delAlt=id=>{if(state.form){state.form.altYukleniciler=state.form.altYukleniciler.filter(a=>a.id!==id);render();}};
-window.openModal=(type,altId=null)=>{state.modal={type,altId};render();};
 window.closeModal=()=>{state.modal=null;render();};
 window.toggleMode=()=>{state.loginMode=state.loginMode==='login'?'register':'login';state.loginErr='';render();};
-window.toggleDurum=async id=>{const next={teklif:'onaylandi',onaylandi:'iptal',iptal:'teklif'};const p=state.projects.find(x=>x.id===id);await saveProject({...p,durum:next[p.durum]});};
 window.doSaveForm=async()=>{
   const f=state.form;
   if(!f||!f.isinAdi.trim()){alert('İş adı zorunludur');return;}
@@ -1887,6 +1890,7 @@ window.doSaveOdeme=async()=>{
   await saveProject(updated);state.modal=null;render();
 };
 window.delMusteriOdeme=async oid=>{const p=state.projects.find(x=>x.id===state.selId);await saveProject({...p,musteriOdemeleri:p.musteriOdemeleri.filter(o=>o.id!==oid)});};
+window.delAltOdeme=async(altId,oid)=>{const p=state.projects.find(x=>x.id===state.selId);await saveProject({...p,altYukleniciler:p.altYukleniciler.map(a=>a.id===altId?{...a,odemeler:(a.odemeler||[]).filter(o=>o.id!==oid)}:a)});};
 function authErrTR(err){
   const c = err && err.code || '';
   const map = {
