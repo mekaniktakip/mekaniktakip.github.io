@@ -19,6 +19,10 @@
 body{font-family:'Nunito',sans-serif;background:#F5F5F5;min-height:100vh;}
 input,select,textarea,button{font-family:inherit;font-size:14px;}
 .app{max-width:600px;margin:0 auto;padding-bottom:70px;}
+@media (min-width:900px){
+  .app{max-width:100%;}
+  .botnav{max-width:100%;}
+}
 
 /* NAV */
 .topnav{background:#000000;padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
@@ -1797,7 +1801,17 @@ window.openModal=(type,altId=null)=>{state.modal={type,altId};render();};
 window.closeModal=()=>{state.modal=null;render();};
 window.toggleMode=()=>{state.loginMode=state.loginMode==='login'?'register':'login';state.loginErr='';render();};
 window.toggleDurum=async id=>{const next={teklif:'onaylandi',onaylandi:'iptal',iptal:'teklif'};const p=state.projects.find(x=>x.id===id);await saveProject({...p,durum:next[p.durum]});};
-window.doSaveForm=async()=>{const f=state.form;if(!f||!f.isinAdi.trim()){alert('İş adı zorunludur');return;}await saveProject(f);state.savedForm=null;state.lastSavedProj={...f};state.view='teklifOzet';state.selId=f.id;render();};
+window.doSaveForm=async()=>{
+  const f=state.form;
+  if(!f||!f.isinAdi.trim()){alert('İş adı zorunludur');return;}
+  try{
+    await saveProject(f);
+    state.savedForm=null;state.lastSavedProj={...f};state.view='teklifOzet';state.selId=f.id;render();
+  }catch(err){
+    console.error('doSaveForm error:', err);
+    alert('Kaydedilemedi! İnternet bağlantınızı kontrol edip tekrar deneyin.\n\nHata: '+(err && err.message ? err.message : err));
+  }
+};
 window.doDeleteProject=async id=>{state.modal=null;await delProject(id);if(state.view==='detail'){state.view='list';state.selId=null;}render();};
 
 
