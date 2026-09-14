@@ -410,6 +410,8 @@ function render() {
   else if(state.view==='rapor') content=renderRapor();
   else if(state.view==='ayarlar') content=renderAyarlar();
   else if(state.view==='odemeRapor') content=renderOdemeRapor();
+  else if(state.view==='altYukListe') content=renderAltYukListe();
+  else if(state.view==='altYukDetay') content=renderAltYukDetay();
   else if(state.view==='list') content=renderList();
   else if(state.view==='detail') content=renderDetail();
   else if(state.view==='form') content=renderForm();
@@ -477,6 +479,10 @@ function renderDash(s){
       </button>
       <button onclick="navTo('odeme')" style="width:100%;padding:22px 24px;background:#fff;color:#111;border:2px solid #111;border-radius:14px;font-size:22px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
         <span>Ödeme</span>
+        <span style="font-size:22px;opacity:0.3;">›</span>
+      </button>
+      <button onclick="navTo('altYukListe')" style="width:100%;padding:22px 24px;background:#fff;color:#111;border:2px solid #111;border-radius:14px;font-size:22px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+        <span>Alt Yükleniciler</span>
         <span style="font-size:22px;opacity:0.3;">›</span>
       </button>
     </div>
@@ -1167,6 +1173,106 @@ function renderOdemeRapor(){
   </div>`;
 }
 
+function altYukAgirla(){
+  // Onaylanmış (durum='onaylandi') projelerdeki alt yüklenicileri firma bazında toplar
+  const map = {};
+  state.projects.forEach(p=>{
+    if(p.durum!=='onaylandi') return;
+    (p.altYukleniciler||[]).forEach(a=>{
+      const firma=(a.firma||'').trim();
+      if(!firma) return;
+      const net=(+a.anlasilanFiyat||0)+(+a.tusFiyat||0)-(a.isKarsiligi?(+a.isKarsiligiFiyat||0):0);
+      const odenen=(a.odemeler||[]).reduce((s,o)=>s+(+o.miktar||0),0);
+      if(!map[firma]) map[firma]={net:0,odenen:0,isler:new Set()};
+      map[firma].net+=net;
+      map[firma].odenen+=odenen;
+      map[firma].isler.add(p.id);
+    });
+  });
+  return map;
+}
+
+function renderAltYukListe(){
+  const map = altYukAgirla();
+  const q=(state.altYukQ||'').toLowerCase().trim();
+  const list = Object.keys(map).map(firma=>({firma,net:map[firma].net,odenen:map[firma].odenen,kalan:map[firma].net-map[firma].odenen,isSayisi:map[firma].isler.size}))
+    .filter(x=>!q||x.firma.toLowerCase().includes(q))
+    .sort((a,b)=>b.kalan-a.kalan);
+  return `<div style="background:#fff;min-height:calc(100vh - 122px);padding:16px;">
+    <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-family:'Nunito',sans-serif;">Alt Yükleniciler</div>
+    <input class="search-bar" placeholder="Firma ara..." value="${state.altYukQ||''}" oninput="setAltYukQ(this.value)" style="margin-bottom:10px;">
+    <div style="font-size:11px;color:#999;margin-bottom:14px;font-family:'Nunito',sans-serif;">Sadece onaylanmış işlerdeki alt yükleniciler listelenir. En çok borçlu olduğun firma en üstte.</div>
+    ${list.length===0?'<div class="empty">Onaylanmış işlerde alt yüklenici bulunamadı</div>':''}
+    ${list.map(x=>`
+      <div class="card" onclick="navTo('altYukDetay','${x.firma.replace(/'/g,"\\'")}')" style="cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:800;font-size:15px;color:#111;font-family:'Nunito',sans-serif;">${x.firma}</div>
+          <span style="color:#9CA3AF;font-size:18px;">›</span>
+        </div>
+        <div style="font-size:12px;color:#888;font-family:'Nunito',sans-serif;margin:4px 0 10px;">${x.isSayisi} onaylı iş</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:#555;font-family:'Nunito',sans-serif;">Kalan Bakiye</span>
+          <span style="font-size:15px;font-weight:800;font-family:'Nunito',sans-serif;color:${x.kalan>0?'#DC2626':'#059669'};">${tl(x.kalan)}</span>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderAltYukDetay(){
+  const firma = state.selId || '';
+  const jobs = [];
+  state.projects.forEach(p=>{
+    if(p.durum!=='onaylandi') return;
+    (p.altYukleniciler||[]).forEach(a=>{
+      if((a.firma||'').trim()!==firma) return;
+      const net=(+a.anlasilanFiyat||0)+(+a.tusFiyat||0)-(a.isKarsiligi?(+a.isKarsiligiFiyat||0):0);
+      const odenen=(a.odemeler||[]).reduce((s,o)=>s+(+o.miktar||0),0);
+      const tarih=(p.gun?p.gun+' ':'')+(p.ay||'')+' '+(p.yil||'');
+      jobs.push({proje:p, alt:a, net, odenen, kalan:net-odenen, tarih});
+    });
+  });
+  jobs.sort((x,y)=>y.kalan-x.kalan);
+  const toplamNet=jobs.reduce((s,j)=>s+j.net,0);
+  const toplamOdenen=jobs.reduce((s,j)=>s+j.odenen,0);
+  const toplamKalan=toplamNet-toplamOdenen;
+  return `<div style="background:#fff;min-height:calc(100vh - 122px);padding:16px;">
+    <div style="font-size:18px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;margin-bottom:14px;">${firma}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;">
+      <div style="background:#F9F9F9;border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:4px;font-family:'Nunito',sans-serif;">Anlaşılan</div>
+        <div style="font-size:15px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;">${tl(toplamNet)}</div>
+      </div>
+      <div style="background:#F9F9F9;border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:4px;font-family:'Nunito',sans-serif;">Ödenen</div>
+        <div style="font-size:15px;font-weight:800;color:#111;font-family:'Nunito',sans-serif;">${tl(toplamOdenen)}</div>
+      </div>
+      <div style="background:${toplamKalan>0?'#FEE2E2':'#D1FAE5'};border-radius:12px;padding:12px;">
+        <div style="font-size:10px;color:${toplamKalan>0?'#991B1B':'#065F46'};font-weight:700;text-transform:uppercase;margin-bottom:4px;font-family:'Nunito',sans-serif;">Kalan</div>
+        <div style="font-size:15px;font-weight:800;color:${toplamKalan>0?'#991B1B':'#065F46'};font-family:'Nunito',sans-serif;">${tl(toplamKalan)}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-family:'Nunito',sans-serif;">Onaylı İşler (${jobs.length})</div>
+    ${jobs.length===0?'<div class="empty">Onaylanmış iş bulunamadı</div>':''}
+    ${jobs.map(j=>`
+      <div class="card" onclick="navTo('detail','${j.proje.id}')" style="cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div style="font-weight:800;font-size:14px;color:#111;font-family:'Nunito',sans-serif;flex:1;margin-right:8px;">${j.proje.isinAdi||'—'}</div>
+          <span style="color:#9CA3AF;font-size:18px;">›</span>
+        </div>
+        <div style="font-size:12px;color:#888;font-family:'Nunito',sans-serif;margin-bottom:8px;">${j.alt.tip||''}${j.tarih.trim()?' · '+j.tarih:''}</div>
+        <div class="alt-info" style="margin-bottom:8px;">
+          <span>Anlaşılan: <strong style="color:#333">${tl(j.alt.anlasilanFiyat||0)}</strong></span>
+          ${j.alt.tus?`<span>TUS: <strong style="color:#333">${j.alt.tusFiyat?tl(j.alt.tusFiyat):'Var'}</strong></span>`:''}
+          ${j.alt.isKarsiligi?`<span>İş Karşılığı: <strong style="color:#333">-${tl(j.alt.isKarsiligiFiyat||0)}</strong></span>`:''}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #F0F0F0;">
+          <span style="font-size:12px;color:#555;font-family:'Nunito',sans-serif;">Ödenen ${tl(j.odenen)}</span>
+          <span style="font-size:14px;font-weight:800;font-family:'Nunito',sans-serif;color:${j.kalan>0?'#DC2626':'#059669'};">Kalan ${tl(j.kalan)}</span>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
 function renderFormDevam(){
   return `<div style="padding:16px;background:#fff;min-height:calc(100vh - 122px);">
     <div style="padding:14px 0 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">
@@ -1828,6 +1934,7 @@ window.setTarih = (val) => {
 
 window.toggleTarihSecim = () => { state.tarihSecimAcik = !state.tarihSecimAcik; render(); };
 window.setFilter=(k,v)=>{state.filter[k]=v;render();};
+window.setAltYukQ=(v)=>{state.altYukQ=v;render();};
 window.setForm=(k,v)=>{if(state.form)state.form[k]=v;};
 window.addAlt=()=>{if(state.form){state.form.altYukleniciler.push({id:uid(),tip:'Elektrik',firma:'',anlasilanFiyat:'',odemeler:[],onaylandi:false});render();}};
 window.confirmAlt=(id)=>{if(state.form){state.form.altYukleniciler=state.form.altYukleniciler.map(a=>a.id===id?{...a,onaylandi:true}:a);render();}};
